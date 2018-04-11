@@ -13,7 +13,7 @@ function base64URLDecode(encoded: string): Buffer {
   return Buffer.from(base64, "base64")
 }
 
-export class Token {
+export default class Token {
   protected _key: string | Buffer
 
   constructor(key?: string | Buffer) {

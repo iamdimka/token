@@ -1,6 +1,6 @@
 {
   "name": "@iamdimka/token",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -19,7 +19,7 @@
   "homepage": "https://github.com/iamdimka/token#readme",
   "devDependencies": {
     "@types/msgpack-lite": "^0.1.6",
-    "@types/node": "^9.6.1"
+    "@types/node": "^9.6.4"
   },
   "dependencies": {
     "@iamdimka/helper": "^0.6.0",
