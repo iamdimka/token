@@ -55,7 +55,7 @@ export default class Token {
     return result
   }
 
-  decodeBuffer(payload: Buffer): Buffer | void {
+  decodeBuffer(payload: Buffer): Buffer | undefined {
     try {
       const data = payload.slice(32)
 
@@ -66,7 +66,7 @@ export default class Token {
     }
   }
 
-  decodeBufferXOR(payload: Buffer, overhead: number = 1): Buffer | void {
+  decodeBufferXOR(payload: Buffer, overhead: number = 1): Buffer | undefined {
     const length = payload.length - overhead
     if (length < 0) {
       return
@@ -88,7 +88,7 @@ export default class Token {
     return this.encodeBufferXOR(encode(toJSON(payload)), overhead).toString("base64")
   }
 
-  decodeBase64<T>(encoded: string): T | void {
+  decodeBase64<T>(encoded: string): T | undefined {
     const buffer = this.decodeBuffer(Buffer.from(encoded, "base64"))
 
     if (buffer) {
@@ -96,7 +96,7 @@ export default class Token {
     }
   }
 
-  decodeBase64XOR<T = any>(encoded: string, overhead: number = 1): T | void {
+  decodeBase64XOR<T = any>(encoded: string, overhead: number = 1): T | undefined {
     let buffer = this.decodeBufferXOR(Buffer.from(encoded, "base64"), overhead)
 
     if (buffer) {
@@ -112,7 +112,7 @@ export default class Token {
     return base64URLEncode(this.encodeBufferXOR(encode(toJSON(payload)), overhead))
   }
 
-  decodeBase64URL<T>(encoded: string): T | void {
+  decodeBase64URL<T>(encoded: string): T | undefined {
     const buffer = this.decodeBuffer(base64URLDecode(encoded))
 
     if (buffer) {
@@ -120,7 +120,7 @@ export default class Token {
     }
   }
 
-  decodeBase64URLXOR<T>(encoded: string, overhead: number = 1): T | void {
+  decodeBase64URLXOR<T>(encoded: string, overhead: number = 1): T | undefined {
     const buffer = this.decodeBufferXOR(base64URLDecode(encoded), overhead)
 
     if (buffer) {
