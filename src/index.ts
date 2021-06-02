@@ -1,23 +1,20 @@
 import { createHmac } from "crypto"
-import { encode, decode } from "msgpack-lite"
-import { toJSON } from "@iamdimka/helper"
-
-const base64Tail = ["", "===", "==", "="]
-
-function base64URLEncode(data: Buffer): string {
-  return data.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
-}
-
-function base64URLDecode(encoded: string): Buffer {
-  let base64 = encoded.replace(/-/g, "+").replace(/_/g, "/") + base64Tail[encoded.length % 4]
-  return Buffer.from(base64, "base64")
-}
+import { base64urlDecode, base64urlEncode, buf, jsonDecode, jsonEncode, prefixed } from "./util"
 
 export default class Token {
   protected _key: string | Buffer
 
+  protected encode: (data: any) => Buffer = jsonEncode;
+  protected decode: (buffer?: Buffer) => any = jsonDecode;
+
   constructor(key?: string | Buffer) {
     this._key = key || ""
+  }
+
+  useEncoder(encode: (data: any) => Buffer, decode: (buffer?: Buffer) => any) {
+    this.encode = encode
+    this.decode = decode
+    return this
   }
 
   sign(payload: Buffer): Buffer {
@@ -29,6 +26,10 @@ export default class Token {
       this.sign(payload),
       payload
     ])
+  }
+
+  encodePrefixedBuffer(prefix: string | Buffer, payload: Buffer): Buffer {
+    return this.encodeBuffer(prefixed(prefix, payload))
   }
 
   encodeBufferXOR(payload: Buffer, overhead: number = 1): Buffer {
@@ -55,6 +56,10 @@ export default class Token {
     return result
   }
 
+  encodePrefixedBufferXOR(prefix: string | Buffer, payload: Buffer, overhead = 1): Buffer {
+    return this.encodeBufferXOR(prefixed(prefix, payload), overhead)
+  }
+
   decodeBuffer(payload: Buffer): Buffer | undefined {
     try {
       const data = payload.slice(32)
@@ -64,6 +69,16 @@ export default class Token {
       }
     } catch (e) {
     }
+  }
+
+  decodePrefixedBuffer(prefix: string | Buffer, payload: Buffer): Buffer | undefined {
+    prefix = buf(prefix)
+
+    if (!payload.slice(32, 32 + prefix.length).equals(prefix)) {
+      return
+    }
+
+    return this.decodeBuffer(payload)?.slice(prefix.length)
   }
 
   decodeBufferXOR(payload: Buffer, overhead: number = 1): Buffer | undefined {
@@ -80,51 +95,71 @@ export default class Token {
     return this.decodeBuffer(res)
   }
 
+  decodePrefixedBufferXOR(prefix: string | Buffer, payload: Buffer, overhead: number = 1): Buffer | undefined {
+    prefix = buf(prefix)
+    const data = this.decodeBufferXOR(payload, overhead)
+    if (data && data.slice(0, prefix.length).equals(prefix)) {
+      return data.slice(prefix.length)
+    }
+  }
+
   encodeBase64<T = any>(payload: T): string {
-    return this.encodeBuffer(encode(toJSON(payload))).toString("base64")
+    return this.encodeBuffer(this.encode(payload)).toString("base64")
+  }
+
+  encodePrefixedBase64<T = any>(prefix: string, payload: T): string {
+    return this.encodePrefixedBuffer(prefix, this.encode(payload)).toString("base64")
   }
 
   encodeBase64XOR<T = any>(payload: T, overhead: number = 1): string {
-    return this.encodeBufferXOR(encode(toJSON(payload)), overhead).toString("base64")
+    return this.encodeBufferXOR(this.encode(payload), overhead).toString("base64")
   }
 
-  decodeBase64<T>(encoded: string): T | undefined {
-    const buffer = this.decodeBuffer(Buffer.from(encoded, "base64"))
+  encodePrefixedBase64XOR<T = any>(prefix: string, payload: T, overhead: number = 1): string {
+    return this.encodePrefixedBufferXOR(prefix, this.encode(payload), overhead).toString("base64")
+  }
 
-    if (buffer) {
-      return decode(buffer)
-    }
+  decodePrefixedBase64<T>(prefix: string, encoded: string): T | undefined {
+    return this.decode(this.decodePrefixedBuffer(prefix, Buffer.from(encoded, "base64")))
   }
 
   decodeBase64XOR<T = any>(encoded: string, overhead: number = 1): T | undefined {
-    let buffer = this.decodeBufferXOR(Buffer.from(encoded, "base64"), overhead)
+    return this.decode(this.decodeBufferXOR(Buffer.from(encoded, "base64"), overhead))
+  }
 
-    if (buffer) {
-      return decode(buffer)
-    }
+  decodePrefixedBase64XOR<T = any>(prefix: string, encoded: string, overhead: number = 1): T | undefined {
+    return this.decode(this.decodePrefixedBufferXOR(prefix, Buffer.from(encoded, "base64"), overhead))
   }
 
   encodeBase64URL<T = any>(payload: T): string {
-    return base64URLEncode(this.encodeBuffer(encode(toJSON(payload))))
+    return base64urlEncode(this.encodeBuffer(this.encode(payload)))
+  }
+
+  encodePrefixedBase64URL<T = any>(prefix: string, payload: T): string {
+    return base64urlEncode(this.encodePrefixedBuffer(prefix, this.encode(payload)))
   }
 
   encodeBase64URLXOR<T = any>(payload: T, overhead: number = 1): string {
-    return base64URLEncode(this.encodeBufferXOR(encode(toJSON(payload)), overhead))
+    return base64urlEncode(this.encodeBufferXOR(this.encode(payload), overhead))
+  }
+
+  encodePrefixedBase64URLXOR<T = any>(prefix: string, payload: T, overhead: number = 1): string {
+    return base64urlEncode(this.encodePrefixedBufferXOR(prefix, this.encode(payload), overhead))
   }
 
   decodeBase64URL<T>(encoded: string): T | undefined {
-    const buffer = this.decodeBuffer(base64URLDecode(encoded))
+    return this.decode(this.decodeBuffer(base64urlDecode(encoded)))
+  }
 
-    if (buffer) {
-      return decode(buffer)
-    }
+  decodePrefixedBase64URL<T>(prefix: string, encoded: string): T | undefined {
+    return this.decode(this.decodePrefixedBuffer(prefix, base64urlDecode(encoded)))
   }
 
   decodeBase64URLXOR<T>(encoded: string, overhead: number = 1): T | undefined {
-    const buffer = this.decodeBufferXOR(base64URLDecode(encoded), overhead)
+    return this.decode(this.decodeBufferXOR(base64urlDecode(encoded), overhead))
+  }
 
-    if (buffer) {
-      return decode(buffer)
-    }
+  decodePrefixedBase64URLXOR<T>(prefix: string, encoded: string, overhead: number = 1): T | undefined {
+    return this.decode(this.decodePrefixedBufferXOR(prefix, base64urlDecode(encoded), overhead))
   }
 }
